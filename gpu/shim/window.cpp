@@ -112,6 +112,13 @@ bool WindowSDL::PollEvents() {
             UpdateTextTitle();
             continue;
         }
+        // bbport: a minimized window has a 0x0 surface on Windows; presentation pauses meanwhile.
+        if (event.type == SDL_EVENT_WINDOW_MINIMIZED) {
+            minimized = true;
+        } else if (event.type == SDL_EVENT_WINDOW_RESTORED || event.type == SDL_EVENT_WINDOW_MAXIMIZED ||
+                   event.type == SDL_EVENT_WINDOW_SHOWN) {
+            minimized = false;
+        }
         if (BbOverlay::HandleEvent(event)) {
             continue;
         }

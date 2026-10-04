@@ -139,7 +139,7 @@ void ConfigureUpscalerSupport(bool fsr4, bool fsr411) {
     const int requested = v.upscaler;
     if ((requested == UpscalerFsr4 && !v.fsr4_supported) ||
         (requested == UpscalerFsr411 && !v.fsr411_supported)) {
-        v.fsr4_problem = "GPU does not support the selected FSR 4 shaders; using FSR 3.1";
+        v.fsr4_problem = "la carte graphique ne prend pas en charge les shaders FSR 4 choisis ; FSR 3.1 utilisé";
         std::printf("Upscaler: %s unsupported on this GPU; falling back to FSR 3.1 before the first frame\n",
                     UpscalerName(requested));
         v.upscaler = UpscalerFsr3;
@@ -202,8 +202,8 @@ float PresetScale(int preset) {
 }
 
 const char* PresetName(int preset) {
-    static constexpr const char* names[PresetCount] = {"Native AA", "Quality", "Balanced",
-                                                       "Performance", "Ultra Performance"};
+    static constexpr const char* names[PresetCount] = {"Native AA", "Qualité", "Équilibré",
+                                                       "Performances", "Ultra performances"};
     return names[std::clamp(preset, 0, PresetCount - 1)];
 }
 

@@ -276,10 +276,19 @@ int main(int argc, char** argv) {
             break;
         }
     }
+#ifdef _WIN32
+    if (!std::getenv("BB_FSR4_PROFILE")) {
+        _putenv_s("BB_FSR4_PROFILE", "1");
+    }
+    if (stats) {
+        _putenv_s("BB_FSR4_STATS", "1");
+    }
+#else
     setenv("BB_FSR4_PROFILE", "1", 0);
     if (stats) {
         setenv("BB_FSR4_STATS", "1", 1);
     }
+#endif
     const Gpu gpu = CreateGpu(stats);
 
     FfxInterface backend{};

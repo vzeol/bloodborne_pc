@@ -135,6 +135,14 @@ public:
     /// A guest write hit a protected page.
     bool OnWriteFault(VAddr addr, bool assume_locks);
     bool ReadMemory(VAddr addr, u64 size, bool assume_locks = false);
+    /// bbport: BB_READBACK_TRACE=2: a read fault only drops the page's GPU-modified state.
+    bool ForgetGpuWrites(VAddr addr) {
+        if (!IsMapped(addr, 8)) {
+            return false;
+        }
+        buffer_cache.ForgetGpuWrites(addr & ~VAddr{4095}, 4096);
+        return true;
+    }
     void ProcessDownloadImages();
     bool IsMapped(VAddr addr, u64 size);
     void MapMemory(VAddr addr, u64 size);

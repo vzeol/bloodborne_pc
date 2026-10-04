@@ -109,6 +109,26 @@ void Scheduler::BeginRendering(const RenderState& new_state) {
         .pStencilAttachment = db.has_stencil ? &stencil_attachment : nullptr,
     };
 
+    // bbport: BB_PARANOID_BARRIERS=1 (diagnostics): a full memory barrier before every render
+    // pass, to tell a missing barrier from other causes.
+    static const bool paranoid = [] {
+        const char* env = std::getenv("BB_PARANOID_BARRIERS");
+        return env && env[0] == '1';
+    }();
+    if (paranoid) {
+        Record([](vk::CommandBuffer cmdbuf) {
+            const vk::MemoryBarrier2 barrier{
+                .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+                .srcAccessMask = vk::AccessFlagBits2::eMemoryWrite,
+                .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+                .dstAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
+            };
+            cmdbuf.pipelineBarrier2(vk::DependencyInfo{
+                .memoryBarrierCount = 1,
+                .pMemoryBarriers = &barrier,
+            });
+        });
+    }
     if (!recorder_running) {
         current_cmdbuf.beginRendering(rendering_info);
         return;

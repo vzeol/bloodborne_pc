@@ -162,6 +162,10 @@ void BufferCache::ReadMemory(VAddr device_addr, u64 size, bool is_write, bool as
     }
 }
 
+void BufferCache::ForgetGpuWrites(VAddr device_addr, u64 size) {
+    memory_tracker->ForEachDownloadRange<true>(device_addr, size, [](u64, u64) {});
+}
+
 void BufferCache::DownloadMemory(const Buffer* arena, VAddr device_addr, u64 size) {
     boost::container::small_vector<vk::BufferCopy, 1> copies;
     u64 total_size_bytes = 0;

@@ -4,6 +4,9 @@
 #pragma once
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <unordered_set>
 #include <deque>
 #include <mutex>
 #include <type_traits>
@@ -16,6 +19,28 @@
 #include "video_core/buffer_cache/region_manager.h"
 
 namespace VideoCore {
+
+// bbport: BB_UPLOAD_CONFLICT_TRACE=1 prints CPU-modified ranges uploaded over pages that also
+// hold GPU-written data (the upload replaces the GPU's data with the guest's copy), once per
+// 4 KiB page, at most 4000 lines.
+inline bool TraceUploadConflicts() {
+    static const bool enabled = [] {
+        const char* env = std::getenv("BB_UPLOAD_CONFLICT_TRACE");
+        return env && env[0] == '1';
+    }();
+    return enabled;
+}
+inline void LogUploadConflict(VAddr addr, u64 size, bool is_written) {
+    static std::mutex mutex;
+    static std::unordered_set<VAddr> seen;
+    std::scoped_lock lock{mutex};
+    if (seen.size() >= 4000 || !seen.insert(addr >> 12).second) {
+        return;
+    }
+    std::printf("Upload conflict: CPU range %#llx size %#llx over GPU-written data%s\n",
+                static_cast<unsigned long long>(addr), static_cast<unsigned long long>(size),
+                is_written ? " (binding written by the GPU)" : "");
+}
 
 class MemoryTracker {
 public:
@@ -111,8 +136,20 @@ public:
                                    return;
                                }
                                manager->lock.lock();
-                               manager->template ForEachModifiedRange<Type::CPU, true>(
-                                   manager->GetCpuAddr() + offset, size, func);
+                               if (TraceUploadConflicts()) {
+                                   manager->template ForEachModifiedRange<Type::CPU, true>(
+                                       manager->GetCpuAddr() + offset, size,
+                                       [&](VAddr addr, u64 bytes) {
+                                           if (manager->template IsRegionModified<Type::GPU>(
+                                                   addr - manager->GetCpuAddr(), bytes)) {
+                                               LogUploadConflict(addr, bytes, is_written);
+                                           }
+                                           func(addr, bytes);
+                                       });
+                               } else {
+                                   manager->template ForEachModifiedRange<Type::CPU, true>(
+                                       manager->GetCpuAddr() + offset, size, func);
+                               }
                                if (!is_written) {
                                    manager->lock.unlock();
                                }

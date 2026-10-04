@@ -2,6 +2,7 @@
 // bbport: glue between the C loader and the vendored shadPS4 video core.
 #include "bbport_overlay.h"
 #include "bbport_settings.h"
+#include "core/emulator_settings.h"
 #include "bbport_copy.h"
 #include "bbport_toggles.h"
 #include <algorithm>
@@ -32,6 +33,7 @@ extern "C" {
 // runtime_memory.c
 int runtime_memory_is_mapped(uintptr_t address, uint64_t size);
 int runtime_memory_write_backing(uintptr_t address, const void* data, uint64_t size);
+int runtime_memory_read_backing(uintptr_t address, void* data, uint64_t size);
 uint64_t runtime_memory_clamp(uintptr_t address, uint64_t size);
 int runtime_memory_region(uintptr_t address, uintptr_t* start, uintptr_t* end, int* mapped);
 void runtime_memory_gpu_protect(uintptr_t address, uint64_t size, int read, int write);
@@ -102,6 +104,7 @@ u64 MemoryManager::ClampRangeSize(VAddr virtual_addr, u64 size) {
     return runtime_memory_clamp(virtual_addr, size);
 }
 static void CopySparseSerial(VAddr source, u8* dest, u64 size) {
+    static const bool precise = EmulatorSettings.GetReadbacksMode() == GpuReadbacksMode::Precise;
     while (size) {
         uintptr_t start = 0, end = 0;
         int mapped = 0;
@@ -109,8 +112,14 @@ static void CopySparseSerial(VAddr source, u8* dest, u64 size) {
             end = source + size;
         }
         const u64 n = std::min<u64>(size, end - source);
-        if (mapped) std::memcpy(dest, reinterpret_cast<const void*>(source), n);
-        else std::memset(dest, 0, n);
+        // bbport: with precise readbacks, GPU-modified pages are read-protected and a fault here
+        // (recording or copy thread) waited for the GPU thread, which waited for this copy.
+        // The port's own uploads read through the unprotected backing view instead.
+        if (!mapped) {
+            std::memset(dest, 0, n);
+        } else if (!precise || !runtime_memory_read_backing(source, dest, n)) {
+            std::memcpy(dest, reinterpret_cast<const void*>(source), n);
+        }
         source += n; dest += n; size -= n;
     }
 }

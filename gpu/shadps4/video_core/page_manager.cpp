@@ -38,6 +38,10 @@
 #else
 #include "common/spin_lock.h"
 #endif
+#include <cstdio>
+#include <cstdlib>
+#include <mutex>
+#include <unordered_set>
 
 namespace VideoCore {
 
@@ -107,6 +111,35 @@ struct PageManager::Impl {
 
     virtual void Protect(VAddr address, size_t size, Core::MemoryPermission perms) = 0;
 
+    // bbport: BB_READBACK_TRACE=1 (with BB_READBACKS=2) prints which thread and instruction read
+    // GPU-written guest memory, once per 4 KiB page (at most 4000 lines).
+    static void TraceReadback(void* context, VAddr addr, bool is_gpu_thread) {
+        static const bool enabled = [] {
+            const char* env = std::getenv("BB_READBACK_TRACE");
+            return env && (env[0] == '1' || env[0] == '2');
+        }();
+        if (!enabled) {
+            return;
+        }
+        static std::mutex mutex;
+        static std::unordered_set<VAddr> seen;
+        std::scoped_lock lock{mutex};
+        if (seen.size() >= 4000 || !seen.insert(addr >> 12).second) {
+            return;
+        }
+        char name[64] = "";
+#ifdef _WIN32
+        PWSTR description = nullptr;
+        if (SUCCEEDED(GetThreadDescription(GetCurrentThread(), &description)) && description) {
+            WideCharToMultiByte(CP_UTF8, 0, description, -1, name, sizeof(name), nullptr, nullptr);
+            LocalFree(description);
+        }
+#endif
+        std::printf("Readback: read of %#llx by thread '%s'%s at rip %p\n",
+                    static_cast<unsigned long long>(addr), name, is_gpu_thread ? " (gpu side)" : "",
+                    Common::GetRip(context));
+    }
+
     static bool GuestFaultSignalHandler(void* context, void* fault_address) {
         const auto addr = reinterpret_cast<VAddr>(fault_address);
         // bbport: the draw recording thread handles its faults inline too (vk_draw_pipe.h).
@@ -120,6 +153,14 @@ struct PageManager::Impl {
         } else {
             BbStats::read_faults.fetch_add(1, std::memory_order_relaxed);
             BbStats::Timer timer{BbStats::t_read_faults};
+            TraceReadback(context, addr, is_gpu_thread);
+            static const bool trace_only = [] {
+                const char* env = std::getenv("BB_READBACK_TRACE");
+                return env && env[0] == '2';
+            }();
+            if (trace_only) {
+                return rasterizer->ForgetGpuWrites(addr);
+            }
             return rasterizer->ReadMemory(addr, 8, is_gpu_thread);
         }
         return false;

@@ -162,7 +162,7 @@ void Menu() {
                             ImGuiCond_Appearing);
     ImGui::SetNextWindowSize(ImVec2(620.0f * base_scale, 0.0f), ImGuiCond_Appearing);
     bool keep_open = true;
-    if (!ImGui::Begin("Bloodborne — settings  (Insert / L3+R3)", &keep_open,
+    if (!ImGui::Begin("Bloodborne — réglages  (Insert / L3+R3)", &keep_open,
                       ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
         return;
@@ -170,9 +170,9 @@ void Menu() {
     ImGui::Text("%.0f FPS  (%.1f ms)", frame_ms_avg > 0.0f ? 1000.0f / frame_ms_avg : 0.0f,
                 frame_ms_avg);
 
-    ImGui::SeparatorText("Temporal upscaler");
-    static const char* upscalers[] = {"Off", "FSR 3.1", "FSR 4 (INT8)", "FSR 4.1.1 (INT8)",
-                                     "TAA (native anti-aliasing)", "DLSS (NVIDIA)"};
+    ImGui::SeparatorText("Upscaler temporel");
+    static const char* upscalers[] = {"Désactivé", "FSR 3.1", "FSR 4 (INT8)", "FSR 4.1.1 (INT8)",
+                                     "TAA (anticrénelage natif)", "DLSS (NVIDIA)"};
     static const char* later[] = {"XeSS"};
     int upscaler = s.upscaler;
     if (ImGui::BeginCombo("Upscaler", upscalers[upscaler])) {
@@ -187,7 +187,7 @@ void Menu() {
             ImGui::EndDisabled();
             if (!supported) {
                 ImGui::SameLine();
-                ImGui::TextDisabled("— not supported by this GPU");
+                ImGui::TextDisabled("— non pris en charge par la carte graphique");
             }
         }
         for (const char* name : later) {
@@ -195,31 +195,31 @@ void Menu() {
             ImGui::Selectable(name, false);
             ImGui::EndDisabled();
             ImGui::SameLine();
-            ImGui::TextDisabled("— in progress");
+            ImGui::TextDisabled("— en développement");
         }
         ImGui::EndCombo();
     }
     if (const char* problem = s.fsr4_problem.load()) {
         ImGui::PushTextWrapPos();
-        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.3f, 1.0f), "Upscaler unavailable: %s", problem);
+        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.3f, 1.0f), "Upscaler indisponible : %s", problem);
         if (!BbSettings::IsFsr4(s.upscaler))
-            ImGui::TextUnformatted("The mode selected above is active. You can select it again to retry.");
+            ImGui::TextUnformatted("Le mode choisi ci-dessus est actif. Vous pouvez le resélectionner pour réessayer.");
         ImGui::PopTextWrapPos();
     }
     if (BbSettings::IsFsr4(s.upscaler)) {
         if (s.upscaler == BbSettings::UpscalerFsr411) {
-            Hint("FSR 4.1.1 in INT8 mode: the model from AMD's 4.1.1 DLL, replayed on Vulkan "
-                 "(output matches the DLL). One model for Native..Performance and a separate one "
-                 "for Ultra Performance. Assets: tools/fsr4cap/build_assets.sh (needs the DLLs and Proton).");
+            Hint("FSR 4.1.1 en INT8 : le modèle de la DLL AMD 4.1.1, rejoué en Vulkan "
+                 "(résultat identique à la DLL). Un modèle pour Native..Performance et un autre "
+                 "pour Ultra Performance. Fichiers : tools/fsr4cap/build_assets.sh (DLL et Proton requis).");
         } else {
-            Hint("FSR 4 in INT8 mode (model v07 from AMD FidelityFX SDK sources). Better quality "
-                 "than FSR 3.1, but a heavier pass. Changing the preset rebuilds the model (a short "
-                 "pause). Assets: tools/fetch_fsr4_assets.sh.");
+            Hint("FSR 4 en INT8 (modèle v07 des sources du SDK AMD FidelityFX). Meilleure qualité "
+                 "que FSR 3.1, mais passe plus lourde. Changer de préréglage recharge le modèle (courte "
+                 "pause). Fichiers : tools/fetch_fsr4_assets.sh.");
         }
-        Checkbox("FSR 4: auto exposure", s.fsr4_auto_exposure);
-        Checkbox("FSR 4: invert jitter sign", s.fsr4_invert_jitter);
-        Hint("For ghosting checks: the FSR 4 network normalizes color by exposure and uses it "
-             "to decide when to drop past frames. Applied immediately, no restart.");
+        Checkbox("FSR 4 : exposition automatique", s.fsr4_auto_exposure);
+        Checkbox("FSR 4 : jitter inversé", s.fsr4_invert_jitter);
+        Hint("À essayer en cas de traînées : le réseau de FSR 4 normalise la couleur selon l'exposition "
+             "et s'en sert pour oublier les images passées. Effet immédiat, sans redémarrage.");
     }
     const bool upscaler_on = s.upscaler != BbSettings::UpscalerOff;
     const bool taa = s.upscaler == BbSettings::UpscalerTaa;
@@ -229,12 +229,12 @@ void Menu() {
     char preset_label[64];
     std::snprintf(preset_label, sizeof(preset_label), "%s (x%.1f)", BbSettings::PresetName(preset),
                   BbSettings::PresetScale(preset));
-    if (ImGui::BeginCombo("Preset", preset_label)) {
+    if (ImGui::BeginCombo("Préréglage", preset_label)) {
         for (int i = 0; i < BbSettings::PresetCount; ++i) {
             char label[64];
             const float scale = BbSettings::PresetScale(i);
             const int output = s.output_res;
-            std::snprintf(label, sizeof(label), "%s (x%.1f, render %dx%d)",
+            std::snprintf(label, sizeof(label), "%s (x%.1f, rendu %dx%d)",
                           BbSettings::PresetName(i), scale,
                           int(std::lround(BbSettings::OutputWidths[output] / scale / 2) * 2),
                           int(std::lround(BbSettings::OutputHeights[output] / scale / 2) * 2));
@@ -246,71 +246,71 @@ void Menu() {
     }
     ImGui::EndDisabled();
     if (taa) {
-        ImGui::TextWrapped("TAA anti-aliases the scene at the output resolution, without an FSR "
-                           "model or upscaling. The saved preset returns when an upscaler is selected.");
+        ImGui::TextWrapped("Le TAA lisse la scène à la résolution de sortie, sans modèle FSR "
+                           "ni mise à l'échelle. Le préréglage enregistré revient quand un upscaler est choisi.");
     }
-    ImGui::Text("Active scene render: %d x %d", s.active_render_width.load(),
+    ImGui::Text("Rendu actuel de la scène : %d x %d", s.active_render_width.load(),
                 s.active_render_height.load());
     if (BbSettings::FixedRenderSession()) {
-        ImGui::Text("Preset at startup: %s", BbSettings::PresetName(s.startup_preset));
+        ImGui::Text("Préréglage au démarrage : %s", BbSettings::PresetName(s.startup_preset));
         if (const char* automatic = std::getenv("BB_AUTO_RENDER_RES");
             automatic && automatic[0] == '1') {
-            Hint("With an output other than 1080p the whole game renders at the preset resolution "
-                 "(patched at startup): fastest on the Steam Deck and weaker GPUs. Preset or output "
-                 "changes apply after a restart. \"Live resolution changes\" below allows changing "
-                 "without a restart (post-processing then stays at 1080p, slower).");
+            Hint("Hors sortie 1080p, tout le jeu est rendu à la résolution du préréglage "
+                 "(patch au démarrage) : le plus rapide sur Steam Deck et les petits GPU. Préréglage ou sortie "
+                 "modifiés après redémarrage. « Résolution à la volée » ci-dessous permet de changer "
+                 "sans redémarrer (le post-traitement reste alors en 1080p, plus lent).");
         } else {
-            Hint("BB_RENDER_RES fixes the scene size at startup. Remove this explicit variable "
-                 "to change resolution and presets without restarting the game.");
+            Hint("BB_RENDER_RES fixe la taille de la scène au démarrage. Retirez cette variable "
+                 "pour changer de résolution et de préréglage sans redémarrer le jeu.");
         }
     } else {
-        Hint("Native AA: the upscaler works as anti-aliasing. The other presets lower the scene "
-             "render resolution relative to the output. The UI is drawn at the output resolution. "
-             "The preset applies from the next frame without restarting the game.");
+        Hint("Native AA : l'upscaler sert d'anticrénelage. Les autres préréglages réduisent la "
+             "résolution de rendu de la scène par rapport à la sortie. L'interface reste à la résolution de sortie. "
+             "Le préréglage s'applique dès l'image suivante, sans redémarrage.");
     }
-    Checkbox("Sharpening (RCAS)", s.sharpen);
+    Checkbox("Netteté (RCAS)", s.sharpen);
     ImGui::BeginDisabled(!s.sharpen);
-    Slider("Sharpness", s.sharpness, 0.0f, 2.0f);
-    Hint("Up to 1: the upscaler's own sharpening (RCAS). Above 1 another RCAS pass is added. "
-         "Ctrl+click the slider to type an exact value.");
+    Slider("Intensité de la netteté", s.sharpness, 0.0f, 2.0f);
+    Hint("Jusqu'à 1 : netteté de l'upscaler lui-même (RCAS). Au-delà, une passe RCAS est ajoutée. "
+         "Ctrl+clic sur le curseur pour saisir une valeur exacte.");
     ImGui::EndDisabled();
-    Checkbox("Sub-pixel jitter", s.jitter);
-    Hint("Each frame the scene shifts by a fraction of a pixel, and the upscaler gathers more "
-         "detail from several frames. Without it you only get history-based anti-aliasing.");
+    Checkbox("Décalage sous-pixel (jitter)", s.jitter);
+    Hint("À chaque image, la scène est décalée d'une fraction de pixel et l'upscaler reconstruit "
+         "plus de détails à partir de plusieurs images. Sans lui, on n'obtient qu'un lissage temporel.");
 
-    ImGui::SeparatorText("Reactive mask");
+    ImGui::SeparatorText("Masque de réactivité");
     ImGui::BeginDisabled(taa);
-    Checkbox("Enable mask", s.reactive);
-    Hint("Marks transparent effects (particles, haze) so the upscaler relies less on past "
-         "frames. Fewer trails behind effects, but shimmer returns underneath them.");
+    Checkbox("Activer le masque", s.reactive);
+    Hint("Marque les effets transparents (particules, brume) pour que l'upscaler s'appuie moins sur "
+         "les images passées. Moins de traînées derrière les effets, mais un peu de scintillement en dessous.");
     ImGui::BeginDisabled(!s.reactive);
-    Slider("Scale", s.reactive_scale, 0.0f, 4.0f);
-    Slider("Threshold", s.reactive_threshold, 0.0f, 1.0f);
+    Slider("Échelle", s.reactive_scale, 0.0f, 4.0f);
+    Slider("Seuil", s.reactive_threshold, 0.0f, 1.0f);
     Slider("Maximum", s.reactive_max, 0.0f, 1.0f);
     bool show_mask = s.debug_view == BbSettings::DebugReactive;
-    if (ImGui::Checkbox("Show mask (debug)", &show_mask)) {
+    if (ImGui::Checkbox("Afficher le masque (débogage)", &show_mask)) {
         s.debug_view = show_mask ? BbSettings::DebugReactive : BbSettings::DebugNone;
     }
     ImGui::EndDisabled();
     ImGui::EndDisabled();
-    Checkbox("Character motion vectors", s.object_motion);
-    Hint("Exact vectors for animated objects: clothing and weapons break up less in motion. "
-         "A static scene gets no extra pass. "
-         "The change applies after restarting the game.");
+    Checkbox("Vecteurs de mouvement des personnages", s.object_motion);
+    Hint("Vecteurs précis pour les objets animés : vêtements et armes se dégradent moins en mouvement. "
+         "La scène statique n'a pas de passe supplémentaire. "
+         "S'applique après redémarrage du jeu.");
     bool show_motion = s.debug_view == BbSettings::DebugMotion;
-    if (ImGui::Checkbox("Show motion vectors (debug)", &show_motion)) {
+    if (ImGui::Checkbox("Afficher les vecteurs de mouvement (débogage)", &show_motion)) {
         s.debug_view = show_motion ? BbSettings::DebugMotion : BbSettings::DebugNone;
     }
-    Hint("Red/green: horizontal/vertical motion (8 pixels = full brightness). "
-         "Blue: the pixel got an exact object vector, not only camera motion. "
-         "A moving object with neither blue nor red/green is treated as still by the "
-         "upscaler, hence the trail.");
+    Hint("Rouge/vert : mouvement horizontal/vertical (8 pixels = pleine intensité). "
+         "Bleu : le pixel a reçu le vecteur précis de l'objet, pas seulement le mouvement de la caméra. "
+         "Un objet mobile sans bleu ni rouge/vert est considéré immobile par "
+         "l'upscaler, d'où les traînées.");
     ImGui::EndDisabled(); // upscaler off
 
-    ImGui::SeparatorText("Output resolution");
+    ImGui::SeparatorText("Résolution de sortie");
     static const char* outputs[] = {"1280 x 720", "1920 x 1080", "2560 x 1440", "3840 x 2160"};
     int output = s.output_res;
-    if (ImGui::BeginCombo("Output resolution", outputs[output])) {
+    if (ImGui::BeginCombo("Résolution de sortie", outputs[output])) {
         for (int i = 0; i < BbSettings::OutputCount; ++i) {
             if (ImGui::Selectable(outputs[i], i == output)) {
                 Store(s.output_res, i, true);
@@ -319,16 +319,16 @@ void Menu() {
         ImGui::EndCombo();
     }
     if (BbSettings::FixedRenderSession()) {
-        Hint("Size of the final frame and the UI. The preset sets the scene size relative to "
-             "the output: 4K Performance = 1920x1080. Applies after restarting the game.");
+        Hint("Taille de l'image finale et de l'interface. Le préréglage fixe la taille de la scène par rapport à "
+             "la sortie : 4K Performance = 1920x1080. S'applique après redémarrage du jeu.");
     } else {
-        Hint("The size of the final frame and the UI changes at the next frame boundary. "
-             "The preset sets the scene size relative to the output: 4K Performance = 1920x1080. "
-             "Changing the size resets the upscaler history and may cause a short pause.");
+        Hint("La taille de l'image finale et de l'interface change à l'image suivante. "
+             "Le préréglage fixe la taille de la scène par rapport à la sortie : 4K Performance = 1920x1080. "
+             "Un changement de taille réinitialise l'historique de l'upscaler et peut causer une courte pause.");
     }
-    static const char* live_modes[] = {"Auto (by GPU)", "Off (faster)", "On"};
+    static const char* live_modes[] = {"Auto (selon la carte graphique)", "Désactivée (plus rapide)", "Activée"};
     int live = s.live_resolution + 1;
-    if (ImGui::BeginCombo("Live resolution changes", live_modes[live])) {
+    if (ImGui::BeginCombo("Résolution à la volée", live_modes[live])) {
         for (int i = 0; i < 3; ++i) {
             if (ImGui::Selectable(live_modes[i], i == live)) {
                 Store(s.live_resolution, i - 1, true);
@@ -336,18 +336,18 @@ void Menu() {
         }
         ImGui::EndCombo();
     }
-    Hint("On: output resolution and preset change without a restart, but the game's "
-         "post-processing stays at 1080p — noticeably slower on the Steam Deck and older GPUs. "
-         "Off: everything renders at the preset resolution; changes need a restart. Auto turns "
-         "it on for powerful discrete GPUs. Applies after restarting the game.");
-    ImGui::SeparatorText("Game effects (after restart)");
-    static const char* lods[] = {"Highest (-2)", "As in the game", "Lower (1)", "Lowest (2)"};
+    Hint("Activée : résolution de sortie et préréglage changent sans redémarrage, mais le "
+         "post-traitement du jeu reste en 1080p — nettement plus lent sur Steam Deck et les anciennes cartes. "
+         "Désactivée : tout est rendu à la résolution du préréglage, tout changement demande un redémarrage. Auto "
+         "l'active sur les cartes dédiées puissantes. S'applique après redémarrage du jeu.");
+    ImGui::SeparatorText("Effets du jeu (après redémarrage)");
+    static const char* lods[] = {"Maximal (-2)", "Comme le jeu", "Réduit (1)", "Minimal (2)"};
     static constexpr int lod_values[] = {-2, 0, 1, 2};
     int lod_index = 1;
     for (int i = 0; i < 4; ++i) {
         if (lod_values[i] == s.model_lod) lod_index = i;
     }
-    if (ImGui::BeginCombo("Model detail", lods[lod_index])) {
+    if (ImGui::BeginCombo("Détail des modèles", lods[lod_index])) {
         for (int i = 0; i < 4; ++i) {
             if (ImGui::Selectable(lods[i], i == lod_index)) {
                 Store(s.model_lod, lod_values[i], true);
@@ -358,11 +358,11 @@ void Menu() {
     for (int e = 0; e < BbSettings::EffectCount; ++e) {
         Checkbox(BbSettings::Effects[e].label, s.effects[e]);
     }
-    Hint("Effects are switched on and off by game patches at startup (patches/Bloodborne.xml). "
-         "Motion blur and shadows from dynamic lights cost noticeable GPU time.");
-    Hint("Free camera: hold Cross and press L3 (keyboard: Space + Z). "
-         "Debug menu: left touchpad / Tab. Needs DbgFont14h.ccm and DbgFont14h.tpf "
-         "in dvdroot_ps4/font from Nexus mod #253. Right touchpad: Backspace.");
+    Hint("Les effets sont activés ou désactivés par des patchs du jeu au démarrage (patches/Bloodborne.xml). "
+         "Le flou de mouvement et les ombres des lumières dynamiques sollicitent nettement le GPU.");
+    Hint("Caméra libre : maintenez Croix et appuyez sur L3 (clavier : Espace + Z). "
+         "Menu de débogage : moitié gauche du pavé tactile / Tab. Requiert DbgFont14h.ccm et DbgFont14h.tpf "
+         "dans dvdroot_ps4/font (mod Nexus #253). Moitié droite : Retour arrière.");
 
     bool restart = s.object_motion != s.startup_object_motion ||
                    s.model_lod != s.startup_model_lod ||
@@ -373,22 +373,22 @@ void Menu() {
     }
     if (restart) {
         ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.3f, 1.0f),
-                           "Changes apply after restarting the game");
-        if (ImGui::Button("Apply and restart the game")) {
+                           "Les changements s'appliqueront après redémarrage du jeu");
+        if (ImGui::Button("Appliquer et redémarrer le jeu")) {
             BbSettings::Save();
             runtime_restart();
         }
     }
 
-    ImGui::SeparatorText("Other");
-    Checkbox("FPS counter in the corner", s.show_fps);
+    ImGui::SeparatorText("Divers");
+    Checkbox("Compteur de FPS dans le coin", s.show_fps);
 
     ImGui::Spacing();
-    if (ImGui::Button("Close")) {
+    if (ImGui::Button("Fermer")) {
         keep_open = false;
     }
     ImGui::SameLine();
-    ImGui::TextDisabled("Settings are saved to bbport.ini");
+    ImGui::TextDisabled("Réglages enregistrés dans bbport.ini");
     ImGui::End();
     if (!keep_open) {
         SetOpen(false);

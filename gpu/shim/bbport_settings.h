@@ -31,16 +31,16 @@ struct Effect {
     bool default_on;
 };
 inline constexpr Effect Effects[] = {
-    {"effect_chromatic_aberration", "Chromatic aberration", true},
-    {"effect_dof", "Depth of field (DoF)", true},
-    {"effect_motion_blur", "Motion blur", true},
-    {"effect_ssao", "SSAO ambient occlusion", true},
-    {"effect_game_aa", "The game's own anti-aliasing", true},
-    {"effect_dynamic_shadows", "Shadows from dynamic lights", true},
-    {"effect_ssr", "SSR reflections (not in the original game)", false},
-    {"skip_intro", "Skip intro videos at startup", false},
-    {"debug_camera", "Free camera (Cross + L3)", false},
-    {"debug_menu", "Debug menu (needs font files)", false},
+    {"effect_chromatic_aberration", "Aberration chromatique", true},
+    {"effect_dof", "Profondeur de champ (DoF)", true},
+    {"effect_motion_blur", "Flou de mouvement", true},
+    {"effect_ssao", "Occlusion ambiante (SSAO)", true},
+    {"effect_game_aa", "Anticrénelage du jeu", true},
+    {"effect_dynamic_shadows", "Ombres des lumières dynamiques", true},
+    {"effect_ssr", "Réflexions SSR (absentes du jeu d'origine)", false},
+    {"skip_intro", "Passer les logos au démarrage", false},
+    {"debug_camera", "Caméra libre (Croix + L3)", false},
+    {"debug_menu", "Menu de débogage (polices requises)", false},
 };
 inline constexpr int EffectCount = int(sizeof(Effects) / sizeof(Effects[0]));
 /// Live output resolutions: the upscaler's output and the UI host targets.

@@ -517,12 +517,28 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame, bool is_game_frame)
         }
     };
 
+    // bbport: a minimized window (Windows) has a 0x0 surface; a swapchain or frame of that size
+    // cannot be created, so frames are dropped until the window is restored.
+    if (window.IsMinimized()) {
+        free_frame();
+        return;
+    }
+
     // Recreate the swapchain if the window was resized.
-    if (window.GetWidth() != swapchain.GetWidth() || window.GetHeight() != swapchain.GetHeight()) {
+    if (window.GetWidth() != swapchain.GetWidth() || window.GetHeight() != swapchain.GetHeight() ||
+        swapchain.NeedsRecreation()) {
+        if (!swapchain.SurfaceHasArea()) {
+            free_frame();
+            return;
+        }
         swapchain.Recreate(window.GetWidth(), window.GetHeight());
     }
 
     if (!swapchain.AcquireNextImage()) {
+        if (!swapchain.SurfaceHasArea()) {
+            free_frame();
+            return;
+        }
         swapchain.Recreate(window.GetWidth(), window.GetHeight());
         if (!swapchain.AcquireNextImage()) {
             // User resizes the window too fast and GPU can't keep up. Skip this frame.
@@ -711,6 +727,10 @@ Frame* Presenter::GetRenderFrame() {
 }
 
 void Presenter::SetExpectedGameSize(s32 width, s32 height) {
+    // bbport: keep the last real size while the surface is 0x0 (minimized window).
+    if (width <= 0 || height <= 0) {
+        return;
+    }
     const float ratio = (float)width / (float)height;
 
     expected_frame_height = height;

@@ -74,6 +74,15 @@ public:
         return extent;
     }
 
+    /// bbport: the last acquire or present asked for a new swapchain.
+    bool NeedsRecreation() const {
+        return needs_recreation;
+    }
+
+    /// bbport: false while the surface is 0x0 (minimized window on Windows), when no swapchain
+    /// can be created.
+    bool SurfaceHasArea() const;
+
     [[nodiscard]] vk::Semaphore GetImageAcquiredSemaphore() const {
         return image_acquired[frame_index];
     }

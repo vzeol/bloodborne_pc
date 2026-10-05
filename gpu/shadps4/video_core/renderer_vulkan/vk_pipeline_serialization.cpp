@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <cstdio>
 #include "common/serdes.h"
 #include "core/emulator_settings.h"
 #include "shader_recompiler/frontend/fetch_shader.h"
@@ -12,7 +13,7 @@
 
 namespace Serialization {
 /* You should increment versions below once corresponding serialization scheme is changed. */
-static constexpr u32 ShaderBinaryVersion = 7u; // bbport: interpolated integer fix (Pascal)
+static constexpr u32 ShaderBinaryVersion = 9u; // bbport: motion addresses as 32-bit spec constants
 static constexpr u32 ShaderMetaVersion = 7u; // bbport: ImageResource::needs_native
 static constexpr u32 PipelineKeyVersion = 5u; // bbport: Info layout (ImageResource::needs_native)
 } // namespace Serialization
@@ -115,11 +116,8 @@ bool LoadShaderMeta(Serialization::Archive& ar, Shader::Info& info,
     spec.Deserialize(ar);
     info.Deserialize(ar);
 
-    // Motion vertex shaders embed session-local buffer device addresses. They must be
-    // recompiled for the current allocation, never loaded from a previous process.
-    if (info.hw_stage == Shader::HwStage::Vertex && spec.runtime_info.hw.vs.motion_vectors) {
-        return false;
-    }
+    // bbport: motion vertex shaders take their session addresses as specialization
+    // constants (GraphicsPipeline), so they load from the cache like any other.
 
     fetch_shader_data = spec.fetch_shader_data;
     return true;
@@ -214,6 +212,9 @@ bool GraphicsPipeline::SerializationSupport::Deserialize(Serialization::Archive&
     return true;
 }
 
+// bbport: why cached pipelines were not preloaded (WarmUp prints the counts).
+static u32 g_stale_no_meta, g_stale_bad_meta, g_stale_no_spv, g_stale_perm, g_stale_version;
+
 bool PipelineCache::LoadGraphicsPipeline(Serialization::Archive& ar) {
     sel.graphics_key.Deserialize(ar);
 
@@ -230,6 +231,7 @@ bool PipelineCache::LoadGraphicsPipeline(Serialization::Archive& ar) {
         Storage::DataBase::Instance().Load(Storage::BlobType::ShaderMeta,
                                            fmt::format("{:#018x}", hash), meta_blob);
         if (meta_blob.empty()) {
+            ++g_stale_no_meta;
             return false;
         }
 
@@ -260,6 +262,7 @@ bool PipelineCache::LoadPipelineStage(Serialization::Archive& ar, size_t stage) 
     spec.info = &program->info;
     size_t perm_idx{};
     if (!LoadShaderMeta(ar, program->info, sel.fetch_shader, spec, perm_idx)) {
+        ++g_stale_bad_meta;
         return false;
     }
 
@@ -268,6 +271,7 @@ bool PipelineCache::LoadPipelineStage(Serialization::Archive& ar, size_t stage) 
                                        fmt::format("{:#018x}_{}", program->info.pgm_hash, perm_idx),
                                        spv);
     if (spv.empty()) {
+        ++g_stale_no_spv;
         return false;
     }
 
@@ -292,6 +296,7 @@ bool PipelineCache::LoadPipelineStage(Serialization::Archive& ar, size_t stage) 
                             "Cached permutation {} of {}_{:x} conflicts with index {}, skipping "
                             "preload",
                             perm_idx, program->info.hw_stage, program->info.pgm_hash, idx);
+                ++g_stale_perm;
                 return false;
             }
             module = it->module;
@@ -361,6 +366,7 @@ void PipelineCache::WarmUp() {
             u32 version{};
             pldata.Read(version);
             if (version != Serialization::PipelineKeyVersion) {
+                ++g_stale_version;
                 return;
             }
 
@@ -383,6 +389,10 @@ void PipelineCache::WarmUp() {
     if (num_total_pipelines > num_pipelines) {
         LOG_WARNING(Render, "{} stale pipelines were found. Consider re-generating the cache",
                     num_total_pipelines - num_pipelines);
+        std::printf("Pipeline cache: %u of %u preloaded; stale: %u missing meta, %u bad meta, "
+                    "%u missing spv, %u permutation conflicts, %u old version\n",
+                    num_pipelines, num_total_pipelines, g_stale_no_meta, g_stale_bad_meta,
+                    g_stale_no_spv, g_stale_perm, g_stale_version);
     }
 
     Storage::DataBase::Instance().FinishPreload();

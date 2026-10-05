@@ -91,6 +91,13 @@ struct MotionVectors {
     static inline u64 positions_address = 0;
     static constexpr u32 FlagStore = 1;
     static constexpr u32 FlagLoad = 2;
+    /// bbport: the two addresses reach the vertex shader as specialization constants, set
+    /// when the pipeline is created, so the SPIR-V does not depend on the session and can be
+    /// kept in the pipeline cache.
+    /// 32-bit halves (low, high): AMD's Windows driver aborts reading its own cache entry for
+    /// pipelines with 64-bit specialization constants.
+    static constexpr u32 ParamsSpecId = 100;    ///< low; ParamsSpecId + 1: high
+    static constexpr u32 PositionsSpecId = 102; ///< low; PositionsSpecId + 1: high
 };
 
 struct HwLocalRuntimeInfo {

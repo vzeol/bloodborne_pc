@@ -168,12 +168,31 @@ GraphicsPipeline::GraphicsPipeline(
 
     boost::container::static_vector<vk::PipelineShaderStageCreateInfo, MaxShaderStages>
         shader_stages;
+    // bbport: the object motion buffer addresses of this session, for motion vertex shaders
+    // (specialization constants, see Shader::MotionVectors). Unused IDs are ignored.
+    using Shader::MotionVectors;
+    const std::array<u32, 4> motion_addresses{
+        u32(MotionVectors::params_address), u32(MotionVectors::params_address >> 32),
+        u32(MotionVectors::positions_address), u32(MotionVectors::positions_address >> 32)};
+    const std::array<vk::SpecializationMapEntry, 4> motion_entries{{
+        {MotionVectors::ParamsSpecId, 0, sizeof(u32)},
+        {MotionVectors::ParamsSpecId + 1, 4, sizeof(u32)},
+        {MotionVectors::PositionsSpecId, 8, sizeof(u32)},
+        {MotionVectors::PositionsSpecId + 1, 12, sizeof(u32)},
+    }};
+    const vk::SpecializationInfo motion_spec{
+        .mapEntryCount = u32(motion_entries.size()),
+        .pMapEntries = motion_entries.data(),
+        .dataSize = sizeof(motion_addresses),
+        .pData = motion_addresses.data(),
+    };
     auto stage = u32(Shader::SwStage::Vertex);
     if (infos[stage]) {
         shader_stages.emplace_back(vk::PipelineShaderStageCreateInfo{
             .stage = vk::ShaderStageFlagBits::eVertex,
             .module = modules[stage],
             .pName = "main",
+            .pSpecializationInfo = key_.motion_vectors ? &motion_spec : nullptr,
         });
     }
     stage = u32(Shader::SwStage::Geometry);

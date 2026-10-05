@@ -77,16 +77,35 @@ static void EmitVertexMotion(EmitContext& ctx) {
                                            ctx.push_data_block,
                                            ctx.ConstU32(PushData::MotionParamIndex));
     const Id param_index = ctx.OpLoad(u32_type, param_ptr);
-    const auto address = [&](u64 base, Id index, u32 stride) {
-        return ctx.OpIAdd(ctx.U64, ctx.Constant(ctx.U64, base),
+    // Session addresses as specialization constants (set at pipeline creation): the module is
+    // the same in every session and can be loaded from the pipeline cache. The defaults differ
+    // so the two declarations stay distinct.
+    // Each address is two 32-bit specialization constants (low, high), declared once per
+    // module and joined in this block (the epilogue may be emitted more than once).
+    if (!Sirit::ValidId(ctx.motion_spec[0])) {
+        const u32 ids[4] = {MotionVectors::ParamsSpecId, MotionVectors::ParamsSpecId + 1,
+                            MotionVectors::PositionsSpecId, MotionVectors::PositionsSpecId + 1};
+        for (u32 i = 0; i < 4; ++i) {
+            ctx.motion_spec[i] = ctx.SpecConstant(u32_type, i + 1); // distinct defaults
+            ctx.Decorate(ctx.motion_spec[i], spv::Decoration::SpecId, ids[i]);
+        }
+    }
+    const auto join = [&](Id lo, Id hi) {
+        return ctx.OpBitcast(ctx.U64, ctx.OpCompositeConstruct(ctx.U32[2], lo, hi));
+    };
+    const Id params_base = join(ctx.motion_spec[0], ctx.motion_spec[1]);
+    const Id positions_base = join(ctx.motion_spec[2], ctx.motion_spec[3]);
+    const auto address = [&](Id base, Id index, u32 stride) {
+        return ctx.OpIAdd(ctx.U64, base,
                           ctx.OpIMul(ctx.U64, ctx.OpUConvert(ctx.U64, index),
                                      ctx.Constant(ctx.U64, u64(stride))));
     };
+    const Id params_plus_16 = ctx.OpIAdd(ctx.U64, params_base, ctx.Constant(ctx.U64, u64{16}));
     const Id u32x4_ptr = ctx.TypePointer(spv::StorageClass::PhysicalStorageBuffer, ctx.U32[4]);
     const Id f32x4_ptr = ctx.TypePointer(spv::StorageClass::PhysicalStorageBuffer, ctx.F32[4]);
     const Id params = ctx.OpLoad(
         ctx.U32[4],
-        ctx.OpConvertUToPtr(u32x4_ptr, address(MotionVectors::params_address, param_index, 32)),
+        ctx.OpConvertUToPtr(u32x4_ptr, address(params_base, param_index, 32)),
         spv::MemoryAccessMask::Aligned, 16u);
     const Id store_base = ctx.OpCompositeExtract(u32_type, params, 0u);
     const Id load_base = ctx.OpCompositeExtract(u32_type, params, 1u);
@@ -94,7 +113,7 @@ static void EmitVertexMotion(EmitContext& ctx) {
     const Id flags = ctx.OpCompositeExtract(u32_type, params, 3u);
     const Id offsets = ctx.OpLoad(
         ctx.U32[4], ctx.OpConvertUToPtr(u32x4_ptr,
-            address(MotionVectors::params_address + 16, param_index, 32)),
+            address(params_plus_16, param_index, 32)),
         spv::MemoryAccessMask::Aligned, 16u);
     const Id first_vertex = ctx.OpCompositeExtract(u32_type, offsets, 0u);
     const Id first_instance = ctx.OpCompositeExtract(u32_type, offsets, 1u);
@@ -118,7 +137,7 @@ static void EmitVertexMotion(EmitContext& ctx) {
     ctx.OpSelectionMerge(store_merge, spv::SelectionControlMask::MaskNone);
     ctx.OpBranchConditional(do_store, store_label, store_merge);
     ctx.AddLabel(store_label);
-    const Id store_address = address(MotionVectors::positions_address,
+    const Id store_address = address(positions_base,
                                      ctx.OpIAdd(u32_type, store_base, slot), 16);
     // Indexed draws may invoke the same vertex more than once. Atomic component stores
     // avoid write/write races; all these invocations produce the same clip position.
@@ -139,7 +158,7 @@ static void EmitVertexMotion(EmitContext& ctx) {
     ctx.OpBranchConditional(do_load, load_label, load_merge);
     ctx.AddLabel(load_label);
     const Id loaded = ctx.OpLoad(
-        ctx.F32[4], ctx.OpConvertUToPtr(f32x4_ptr, address(MotionVectors::positions_address,
+        ctx.F32[4], ctx.OpConvertUToPtr(f32x4_ptr, address(positions_base,
             ctx.OpIAdd(u32_type, load_base, slot), 16)), spv::MemoryAccessMask::Aligned, 16u);
     ctx.OpBranch(load_merge);
     ctx.AddLabel(load_merge);
